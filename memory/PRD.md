@@ -1,7 +1,13 @@
 # Mutha's Psychology Intelligence - PRD
 
 ## Project Overview
-A premium psychology consultation website with AI-assisted booking and safety-first intake workflow for the India market.
+**UPDATED: Platform Pivot to School Ecosystem Model**
+
+A premium School Emotional Intelligence Infrastructure Platform targeting educational institutions (K-12) with psychoeducational services integrating Psychology + Education + Applied Arts.
+
+**New Positioning:** Mutha Educational Psychology Systems (MEPS)
+
+See `/app/memory/MEPS_STRATEGIC_FOUNDATION.md` for complete strategic documentation.
 
 ## Original Problem Statement
 Build a premium, production-ready website + web app for Mutha's Psychology Intelligence - Phase 1A focusing on AI-assisted booking and safety-first intake with deep AI integration and automation.
