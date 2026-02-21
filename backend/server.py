@@ -438,6 +438,406 @@ async def submit_contact_form(form_data: ContactFormData):
     
     return {"id": contact.id, "status": "submitted", "message": "Thank you for reaching out. We'll respond within 24-48 hours."}
 
+# ==================== AVAILABILITY & SLOTS ROUTES ====================
+
+def get_available_slots(start_date: datetime, days: int = 7) -> List[dict]:
+    """Generate available slots for the next N days"""
+    slots = []
+    india_tz = pytz.timezone('Asia/Kolkata')
+    
+    # Working hours: 10 AM to 8 PM IST
+    working_hours = [10, 11, 12, 14, 15, 16, 17, 18, 19]  # Skip 1 PM for lunch
+    
+    for day_offset in range(days):
+        current_date = start_date + timedelta(days=day_offset)
+        
+        # Skip Sundays (weekday 6)
+        if current_date.weekday() == 6:
+            continue
+        
+        date_str = current_date.strftime('%Y-%m-%d')
+        
+        for hour in working_hours:
+            # Add slots at :00 and :30
+            for minute in [0, 30]:
+                time_str = f"{hour:02d}:{minute:02d}"
+                slots.append({
+                    "date": date_str,
+                    "time": time_str,
+                    "datetime_ist": f"{date_str}T{time_str}:00+05:30",
+                    "available": True
+                })
+    
+    return slots
+
+@api_router.get("/slots")
+async def get_slots(days: int = 14):
+    """Get available booking slots for the next N days"""
+    india_tz = pytz.timezone('Asia/Kolkata')
+    now_ist = datetime.now(india_tz)
+    
+    # Start from tomorrow
+    start_date = now_ist + timedelta(days=1)
+    
+    slots = get_available_slots(start_date, days)
+    
+    # Get booked slots from database
+    booked = await db.bookings.find(
+        {"status": {"$in": ["confirmed", "payment_pending"]}},
+        {"_id": 0, "slot_date": 1, "slot_time": 1, "duration": 1}
+    ).to_list(1000)
+    
+    booked_set = {(b["slot_date"], b["slot_time"]) for b in booked}
+    
+    # Mark booked slots as unavailable
+    for slot in slots:
+        if (slot["date"], slot["time"]) in booked_set:
+            slot["available"] = False
+    
+    return {
+        "slots": slots,
+        "timezone": "Asia/Kolkata",
+        "generated_at": now_ist.isoformat()
+    }
+
+@api_router.get("/slots/{date}")
+async def get_slots_for_date(date: str):
+    """Get available slots for a specific date"""
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    india_tz = pytz.timezone('Asia/Kolkata')
+    now_ist = datetime.now(india_tz)
+    
+    # Check if date is in the past
+    if target_date.date() < now_ist.date():
+        raise HTTPException(status_code=400, detail="Cannot book slots in the past")
+    
+    slots = get_available_slots(target_date, 1)
+    
+    # Get booked slots for this date
+    booked = await db.bookings.find(
+        {"slot_date": date, "status": {"$in": ["confirmed", "payment_pending"]}},
+        {"_id": 0, "slot_time": 1, "duration": 1}
+    ).to_list(100)
+    
+    booked_times = {b["slot_time"] for b in booked}
+    
+    for slot in slots:
+        if slot["time"] in booked_times:
+            slot["available"] = False
+    
+    return {"date": date, "slots": slots}
+
+# ==================== BOOKING ROUTES ====================
+
+def calculate_price(duration: int, service_type: str) -> int:
+    """Calculate price based on duration and service type"""
+    base_prices = {
+        30: 1000,
+        45: 1500,
+        60: 2000
+    }
+    
+    # Couples sessions have premium pricing
+    if service_type == "couples":
+        return 2500
+    
+    return base_prices.get(duration, 1500)
+
+@api_router.post("/booking")
+async def create_booking(request: BookingRequest):
+    """Create a new booking"""
+    # Validate intake exists
+    intake = await db.intake_responses.find_one(
+        {"id": request.intake_id},
+        {"_id": 0}
+    )
+    
+    if not intake:
+        raise HTTPException(status_code=404, detail="Intake not found")
+    
+    # Check if slot is available
+    existing = await db.bookings.find_one({
+        "slot_date": request.slot_date,
+        "slot_time": request.slot_time,
+        "status": {"$in": ["confirmed", "payment_pending"]}
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="This slot is no longer available")
+    
+    # Calculate price
+    amount = calculate_price(request.duration, request.service_type)
+    
+    # Create booking
+    booking = Booking(
+        intake_id=request.intake_id,
+        client_name=intake["form_data"]["full_name"],
+        client_email=intake["form_data"]["email"],
+        client_whatsapp=intake["form_data"]["whatsapp"],
+        service_type=request.service_type,
+        slot_date=request.slot_date,
+        slot_time=request.slot_time,
+        duration=request.duration,
+        amount=amount,
+        status="payment_pending"
+    )
+    
+    doc = booking.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.bookings.insert_one(doc)
+    
+    return {
+        "id": booking.id,
+        "amount": amount,
+        "amount_display": f"₹{amount}",
+        "slot": f"{request.slot_date} at {request.slot_time} IST",
+        "duration": f"{request.duration} minutes",
+        "service_type": request.service_type,
+        "status": "payment_pending"
+    }
+
+@api_router.get("/booking/{booking_id}")
+async def get_booking(booking_id: str):
+    """Get booking details"""
+    booking = await db.bookings.find_one(
+        {"id": booking_id},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return booking
+
+# ==================== PAYMENT ROUTES (MOCKED) ====================
+
+@api_router.post("/payment/create-order")
+async def create_payment_order(request: PaymentRequest):
+    """Create a payment order (MOCKED - no actual Razorpay integration)"""
+    # Verify booking exists
+    booking = await db.bookings.find_one(
+        {"id": request.booking_id},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["status"] == "confirmed":
+        raise HTTPException(status_code=400, detail="Booking already confirmed")
+    
+    # Generate mock order ID (simulating Razorpay)
+    mock_order_id = f"order_mock_{uuid.uuid4().hex[:16]}"
+    
+    return {
+        "order_id": mock_order_id,
+        "booking_id": request.booking_id,
+        "amount": request.amount,
+        "currency": "INR",
+        "status": "created",
+        "notes": {
+            "mode": "MOCK - No actual payment processed",
+            "booking_id": request.booking_id
+        }
+    }
+
+@api_router.post("/payment/verify")
+async def verify_payment(
+    booking_id: str,
+    payment_id: str = None,
+    order_id: str = None,
+    signature: str = None
+):
+    """Verify payment and confirm booking (MOCKED - always succeeds)"""
+    # Get booking
+    booking = await db.bookings.find_one(
+        {"id": booking_id},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Generate mock payment ID
+    mock_payment_id = payment_id or f"pay_mock_{uuid.uuid4().hex[:16]}"
+    
+    # Update booking status
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {
+            "$set": {
+                "status": "confirmed",
+                "payment_id": mock_payment_id,
+                "payment_status": "completed",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Send confirmation email (mocked)
+    await send_mock_email(
+        to_email=booking["client_email"],
+        subject="Booking Confirmed - Mutha's Psychology Intelligence",
+        body=f"""
+Dear {booking["client_name"]},
+
+Your booking has been confirmed!
+
+📅 Date: {booking["slot_date"]}
+⏰ Time: {booking["slot_time"]} IST
+⏱️ Duration: {booking["duration"]} minutes
+💰 Amount Paid: ₹{booking["amount"]}
+
+Booking ID: {booking_id}
+
+You will receive a video call link 24 hours before your session.
+
+Important:
+- Please be in a quiet, private space for your session
+- Have a stable internet connection
+- You can reschedule up to 24 hours before the session
+
+Thank you for choosing Mutha's Psychology Intelligence.
+
+Best regards,
+Saloni Mutha
+        """,
+        notification_type="booking_confirmation",
+        booking_id=booking_id
+    )
+    
+    return {
+        "status": "success",
+        "booking_id": booking_id,
+        "payment_id": mock_payment_id,
+        "message": "Payment verified and booking confirmed (MOCKED)"
+    }
+
+# ==================== EMAIL NOTIFICATIONS (MOCKED) ====================
+
+async def send_mock_email(
+    to_email: str,
+    subject: str,
+    body: str,
+    notification_type: str,
+    booking_id: str = None
+):
+    """Send email notification (MOCKED - logs to database)"""
+    notification = EmailNotification(
+        to_email=to_email,
+        subject=subject,
+        body=body,
+        notification_type=notification_type,
+        booking_id=booking_id,
+        status="sent"  # Always "sent" in mock mode
+    )
+    
+    doc = notification.model_dump()
+    doc['sent_at'] = doc['sent_at'].isoformat()
+    
+    await db.email_notifications.insert_one(doc)
+    
+    logger.info(f"[MOCK EMAIL] To: {to_email}, Subject: {subject}")
+    
+    return notification.id
+
+@api_router.get("/notifications/{booking_id}")
+async def get_notifications(booking_id: str):
+    """Get all notifications for a booking"""
+    notifications = await db.email_notifications.find(
+        {"booking_id": booking_id},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return {"booking_id": booking_id, "notifications": notifications}
+
+# ==================== ICS CALENDAR GENERATION ====================
+
+def generate_ics(booking: dict) -> str:
+    """Generate ICS calendar file content"""
+    # Parse date and time
+    date_str = booking["slot_date"]
+    time_str = booking["slot_time"]
+    duration = booking["duration"]
+    
+    # Create datetime in IST
+    india_tz = pytz.timezone('Asia/Kolkata')
+    start_dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    start_dt = india_tz.localize(start_dt)
+    end_dt = start_dt + timedelta(minutes=duration)
+    
+    # Convert to UTC for ICS
+    start_utc = start_dt.astimezone(pytz.UTC)
+    end_utc = end_dt.astimezone(pytz.UTC)
+    
+    # Format for ICS
+    start_ics = start_utc.strftime("%Y%m%dT%H%M%SZ")
+    end_ics = end_utc.strftime("%Y%m%dT%H%M%SZ")
+    now_ics = datetime.now(pytz.UTC).strftime("%Y%m%dT%H%M%SZ")
+    
+    uid = f"{booking['id']}@muthapsych.com"
+    
+    ics_content = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Mutha's Psychology Intelligence//Booking//EN
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VEVENT
+UID:{uid}
+DTSTART:{start_ics}
+DTEND:{end_ics}
+DTSTAMP:{now_ics}
+SUMMARY:Psychology Consultation with Saloni Mutha
+DESCRIPTION:Your {duration}-minute psychology consultation session.\\n\\nBooking ID: {booking['id']}\\n\\nPlease be ready 5 minutes before the session.\\nEnsure you have a stable internet connection and a private space.
+LOCATION:Online (Video Call)
+STATUS:CONFIRMED
+ORGANIZER;CN=Mutha's Psychology Intelligence:mailto:hello@muthapsych.com
+ATTENDEE;CN={booking['client_name']};RSVP=TRUE:mailto:{booking['client_email']}
+BEGIN:VALARM
+TRIGGER:-PT24H
+ACTION:DISPLAY
+DESCRIPTION:Reminder: Your psychology consultation is tomorrow
+END:VALARM
+BEGIN:VALARM
+TRIGGER:-PT2H
+ACTION:DISPLAY
+DESCRIPTION:Reminder: Your psychology consultation is in 2 hours
+END:VALARM
+END:VEVENT
+END:VCALENDAR"""
+    
+    return ics_content
+
+@api_router.get("/booking/{booking_id}/ics")
+async def download_ics(booking_id: str):
+    """Download ICS calendar file for booking"""
+    booking = await db.bookings.find_one(
+        {"id": booking_id},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["status"] != "confirmed":
+        raise HTTPException(status_code=400, detail="Booking not yet confirmed")
+    
+    ics_content = generate_ics(booking)
+    
+    return Response(
+        content=ics_content,
+        media_type="text/calendar",
+        headers={
+            "Content-Disposition": f"attachment; filename=booking_{booking_id}.ics"
+        }
+    )
+
 # ==================== STATIC DATA ROUTES ====================
 
 @api_router.get("/services")
