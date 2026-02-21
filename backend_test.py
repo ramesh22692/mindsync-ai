@@ -496,7 +496,7 @@ class PsychologyAPITester:
         return False
 
 def main():
-    print("🚀 Starting Psychology Intelligence API Tests (Phase 1B)")
+    print("🚀 Starting Psychology Intelligence API Tests (Phase 1C)")
     print("=" * 60)
     
     tester = PsychologyAPITester()
@@ -538,6 +538,40 @@ def main():
     except Exception as e:
         print(f"❌ Crisis intake test failed: {str(e)}")
     
+    # Phase 1C: Authentication Tests
+    print("\n📋 Phase 1C Tests (Authentication & Portal):")
+    print("-" * 40)
+    
+    auth_tests = [
+        ("User Registration", tester.test_user_registration),
+        ("User Login", tester.test_user_login),
+        ("Get User Profile", tester.test_get_user_profile),
+        ("Update Profile", tester.test_update_profile),
+    ]
+    
+    # Run authentication tests
+    for test_name, test_func in auth_tests:
+        try:
+            test_func()
+        except Exception as e:
+            print(f"❌ {test_name} failed with exception: {str(e)}")
+    
+    # Test client portal features
+    try:
+        success, bookings = tester.test_get_my_bookings()
+        if success:
+            # Test feedback functionality
+            for booking in bookings:
+                booking_id = booking.get('id')
+                if booking_id:
+                    tester.test_get_feedback(booking_id)
+                    # Only test feedback submission for completed bookings
+                    if booking.get('status') == 'completed':
+                        tester.test_submit_feedback(booking_id)
+                    break  # Test with first booking only
+    except Exception as e:
+        print(f"❌ Portal tests failed: {str(e)}")
+    
     # Phase 1B: Booking & Payment Tests
     print("\n📋 Phase 1B Tests (Booking & Payment):")
     print("-" * 40)
@@ -566,6 +600,14 @@ def main():
                     # Test post-payment features
                     tester.test_ics_download(booking_id)
                     tester.test_email_notifications(booking_id)
+                    
+                    # Test portal features with new booking (if user is authenticated)
+                    if tester.auth_token:
+                        try:
+                            # Test cancellation (will work since booking was just created)
+                            tester.test_cancel_booking(booking_id)
+                        except Exception as e:
+                            print(f"⚠️  Cancel test failed: {str(e)}")
         else:
             print("⚠️  Skipping booking tests - no valid intake ID")
             
