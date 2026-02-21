@@ -1043,6 +1043,83 @@ async def get_revenue_report(
         "by_service": by_service
     }
 
+@api_router.get("/admin/notifications")
+async def get_all_notifications(
+    notification_type: Optional[str] = None,
+    limit: int = 100,
+    admin: dict = Depends(get_admin_user)
+):
+    """Get all notifications (email + WhatsApp)"""
+    query = {}
+    if notification_type:
+        query["notification_type"] = notification_type
+    
+    emails = await db.email_notifications.find(query, {"_id": 0}).sort("sent_at", -1).to_list(limit)
+    whatsapp = await db.whatsapp_notifications.find(query, {"_id": 0}).sort("sent_at", -1).to_list(limit)
+    
+    return {
+        "email_notifications": emails,
+        "whatsapp_notifications": whatsapp,
+        "email_count": len(emails),
+        "whatsapp_count": len(whatsapp)
+    }
+
+@api_router.post("/admin/send-reminder/{booking_id}")
+async def manual_send_reminder(
+    booking_id: str,
+    reminder_type: str = "reminder_24h",
+    admin: dict = Depends(get_admin_user)
+):
+    """Manually trigger a reminder for a booking"""
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    date_formatted = datetime.strptime(booking['slot_date'], "%Y-%m-%d").strftime("%B %d, %Y")
+    time_parts = booking['slot_time'].split(':')
+    hour = int(time_parts[0])
+    time_formatted = f"{hour % 12 or 12}:{time_parts[1]} {'PM' if hour >= 12 else 'AM'}"
+    
+    from services.notifications import format_template
+    
+    template_data = {
+        "client_name": booking.get('client_name', 'Client'),
+        "date": date_formatted,
+        "time": time_formatted,
+        "duration": booking.get('duration', 45),
+        "amount": booking.get('amount', 0),
+        "booking_id": booking_id,
+        "booking_id_short": booking_id[:8]
+    }
+    
+    subject, body = format_template(reminder_type, 'email', **template_data)
+    await email_service.send(booking['client_email'], subject, body, f"manual_{reminder_type}", booking_id)
+    
+    _, wa_msg = format_template(reminder_type, 'whatsapp', **template_data)
+    if wa_msg and booking.get('client_whatsapp'):
+        await whatsapp_service.send(booking['client_whatsapp'], wa_msg, f"manual_{reminder_type}", booking_id)
+    
+    return {"status": "sent", "type": reminder_type}
+
+@api_router.get("/admin/notification-stats")
+async def get_notification_stats(admin: dict = Depends(get_admin_user)):
+    """Get notification statistics"""
+    email_total = await db.email_notifications.count_documents({})
+    email_by_type = await db.email_notifications.aggregate([
+        {"$group": {"_id": "$notification_type", "count": {"$sum": 1}}}
+    ]).to_list(20)
+    
+    wa_total = await db.whatsapp_notifications.count_documents({})
+    wa_by_type = await db.whatsapp_notifications.aggregate([
+        {"$group": {"_id": "$notification_type", "count": {"$sum": 1}}}
+    ]).to_list(20)
+    
+    return {
+        "email": {"total": email_total, "by_type": {x["_id"]: x["count"] for x in email_by_type}},
+        "whatsapp": {"total": wa_total, "by_type": {x["_id"]: x["count"] for x in wa_by_type}},
+        "scheduler_running": reminder_scheduler.running
+    }
+
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.model_dump()
@@ -1809,6 +1886,23 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Background task handle
+reminder_task = None
+
+@app.on_event("startup")
+async def startup_event():
+    """Start background services"""
+    global reminder_task
+    reminder_scheduler.running = True
+    reminder_task = asyncio.create_task(reminder_check_loop(reminder_scheduler))
+    logger.info("Reminder scheduler started")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    """Cleanup on shutdown"""
+    global reminder_task
+    reminder_scheduler.running = False
+    if reminder_task:
+        reminder_task.cancel()
     client.close()
+    logger.info("Services shutdown complete")
