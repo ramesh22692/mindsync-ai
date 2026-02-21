@@ -9,6 +9,8 @@ class PsychologyAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.session_id = f"test_session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self.auth_token = None
+        self.test_user_email = f"test_user_{datetime.now().strftime('%Y%m%d_%H%M%S')}@example.com"
 
     def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
         """Run a single API test"""
