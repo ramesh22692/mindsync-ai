@@ -124,6 +124,110 @@ class ContactResponse(BaseModel):
     status: str = "new"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# ==================== AUTH MODELS ====================
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    phone: Optional[str] = None
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class User(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: str
+    full_name: str
+    phone: Optional[str] = None
+    password_hash: str
+    role: str = "client"  # client or admin
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    phone: Optional[str]
+    role: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+class FeedbackSubmit(BaseModel):
+    booking_id: str
+    rating: int = Field(ge=1, le=5)
+    feedback_text: Optional[str] = None
+    would_recommend: bool = True
+
+class Feedback(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    booking_id: str
+    user_id: str
+    rating: int
+    feedback_text: Optional[str] = None
+    would_recommend: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# ==================== AUTH HELPERS ====================
+
+def hash_password(password: str) -> str:
+    """Hash password using SHA-256"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against hash"""
+    return hash_password(password) == password_hash
+
+def create_access_token(user_id: str, email: str, role: str) -> str:
+    """Create JWT access token"""
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "role": role,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS),
+        "iat": datetime.now(timezone.utc)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user from JWT token"""
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = payload.get("user_id")
+        
+        user = await db.users.find_one({"id": user_id}, {"_id": 0})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        
+        if not user.get("is_active", True):
+            raise HTTPException(status_code=401, detail="User account is disabled")
+        
+        return user
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+async def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user if authenticated, otherwise return None"""
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(credentials)
+    except HTTPException:
+        return None
+
 # ==================== BOOKING & PAYMENT MODELS ====================
 
 class TimeSlot(BaseModel):
