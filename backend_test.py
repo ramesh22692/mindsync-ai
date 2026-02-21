@@ -192,6 +192,131 @@ class PsychologyAPITester:
             return True
         return False
 
+    # ==================== PHASE 1B: BOOKING & PAYMENT TESTS ====================
+
+    def test_slots_endpoint(self):
+        """Test available slots endpoint"""
+        success, data = self.run_test("Available Slots", "GET", "api/slots?days=7", 200)
+        
+        if success and isinstance(data, dict) and 'slots' in data:
+            slots = data['slots']
+            available_slots = [s for s in slots if s.get('available', False)]
+            print(f"   Found {len(slots)} total slots, {len(available_slots)} available")
+            return True, available_slots
+        return False, []
+
+    def test_slots_for_date(self, date="2025-01-20"):
+        """Test slots for specific date"""
+        success, data = self.run_test("Slots for Date", "GET", f"api/slots/{date}", 200)
+        
+        if success and isinstance(data, dict) and 'slots' in data:
+            print(f"   Found {len(data['slots'])} slots for {date}")
+            return True
+        return False
+
+    def test_booking_creation(self, intake_id):
+        """Test booking creation"""
+        if not intake_id:
+            print("   ⚠️  Skipping booking creation - no valid intake ID")
+            return False, None
+        
+        # Get available slots first
+        slots_success, available_slots = self.test_slots_endpoint()
+        if not slots_success or not available_slots:
+            print("   ⚠️  No available slots for booking test")
+            return False, None
+        
+        # Use first available slot
+        slot = available_slots[0]
+        booking_data = {
+            "intake_id": intake_id,
+            "slot_date": slot["date"],
+            "slot_time": slot["time"],
+            "duration": 45,
+            "service_type": "individual"
+        }
+        
+        success, data = self.run_test("Create Booking", "POST", "api/booking", 200, booking_data)
+        
+        if success and isinstance(data, dict) and data.get('id'):
+            print(f"   ✅ Booking created: {data['id'][:8]}... Amount: {data.get('amount_display')}")
+            return True, data['id']
+        return False, None
+
+    def test_booking_retrieval(self, booking_id):
+        """Test booking retrieval by ID"""
+        if not booking_id:
+            print("   ⚠️  Skipping booking retrieval - no valid booking ID")
+            return False
+        
+        success, data = self.run_test("Get Booking", "GET", f"api/booking/{booking_id}", 200)
+        
+        if success and isinstance(data, dict) and data.get('id') == booking_id:
+            print(f"   ✅ Booking retrieved: Status {data.get('status')}")
+            return True
+        return False
+
+    def test_payment_create_order(self, booking_id):
+        """Test payment order creation (mocked)"""
+        if not booking_id:
+            print("   ⚠️  Skipping payment order - no valid booking ID")
+            return False, None
+        
+        payment_data = {
+            "booking_id": booking_id,
+            "amount": 150000,  # 1500 in paise
+            "payment_method": "card"
+        }
+        
+        success, data = self.run_test("Create Payment Order", "POST", "api/payment/create-order", 200, payment_data)
+        
+        if success and isinstance(data, dict) and data.get('order_id'):
+            print(f"   ✅ Payment order created: {data['order_id']}")
+            return True, data['order_id']
+        return False, None
+
+    def test_payment_verify(self, booking_id, order_id):
+        """Test payment verification (mocked)"""
+        if not booking_id:
+            print("   ⚠️  Skipping payment verification - no valid booking ID")
+            return False
+        
+        success, data = self.run_test("Verify Payment", "POST", f"api/payment/verify?booking_id={booking_id}", 200)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'success':
+            print(f"   ✅ Payment verified: {data.get('payment_id')}")
+            return True
+        return False
+
+    def test_ics_download(self, booking_id):
+        """Test ICS calendar download"""
+        if not booking_id:
+            print("   ⚠️  Skipping ICS download - no valid booking ID")
+            return False
+        
+        # Use different headers for ICS download
+        headers = {'Accept': 'text/calendar'}
+        success, data = self.run_test("ICS Calendar Download", "GET", f"api/booking/{booking_id}/ics", 200, headers=headers)
+        
+        if success and isinstance(data, str) and 'BEGIN:VCALENDAR' in data:
+            print(f"   ✅ ICS file generated successfully")
+            return True
+        return False
+
+    def test_email_notifications(self, booking_id):
+        """Test email notifications retrieval"""
+        if not booking_id:
+            print("   ⚠️  Skipping email notifications - no valid booking ID")
+            return False
+        
+        success, data = self.run_test("Email Notifications", "GET", f"api/notifications/{booking_id}", 200)
+        
+        if success and isinstance(data, dict) and 'notifications' in data:
+            notifications = data['notifications']
+            print(f"   ✅ Found {len(notifications)} email notifications")
+            return True
+        return False
+
 def main():
     print("🚀 Starting Psychology Intelligence API Tests")
     print("=" * 60)
