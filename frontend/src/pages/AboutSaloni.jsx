@@ -103,9 +103,9 @@ export const AboutSaloni = () => {
             <div className="order-1 lg:order-2">
               <div className="relative">
                 <img
-                  src="https://images.unsplash.com/photo-1622460241924-a114e6abe1ff?w=800"
+                  src="https://images.pexels.com/photos/734168/pexels-photo-734168.jpeg"
                   alt="Saloni Mutha - Psychology Educator"
-                  className="rounded-2xl shadow-xl w-full max-w-md mx-auto"
+                  className="rounded-2xl shadow-xl w-full max-w-md mx-auto object-cover h-[500px]"
                 />
                 <div className="absolute -bottom-4 -right-4 bg-primary text-white p-4 rounded-xl shadow-lg hidden md:block">
                   <p className="font-semibold">9+ Years</p>
