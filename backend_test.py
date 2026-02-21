@@ -372,7 +372,7 @@ class PsychologyAPITester:
             return True
         return False
 
-    def test_slots_endpoint(self):
+    # ==================== PHASE 1B: BOOKING & PAYMENT TESTS ====================
         """Test available slots endpoint"""
         success, data = self.run_test("Available Slots", "GET", "api/slots?days=7", 200)
         
