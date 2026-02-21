@@ -318,13 +318,13 @@ class PsychologyAPITester:
         return False
 
 def main():
-    print("🚀 Starting Psychology Intelligence API Tests")
+    print("🚀 Starting Psychology Intelligence API Tests (Phase 1B)")
     print("=" * 60)
     
     tester = PsychologyAPITester()
     
-    # Test all endpoints
-    tests = [
+    # Test Phase 1A endpoints
+    phase_1a_tests = [
         ("Root API", tester.test_root_endpoint),
         ("Services", tester.test_services_endpoint),
         ("FAQs", tester.test_faqs_endpoint),
@@ -336,14 +336,18 @@ def main():
         ("Contact Form", tester.test_contact_form),
     ]
     
-    # Run basic tests
-    for test_name, test_func in tests:
+    print("\n📋 Phase 1A Tests:")
+    print("-" * 40)
+    
+    # Run Phase 1A tests
+    for test_name, test_func in phase_1a_tests:
         try:
             test_func()
         except Exception as e:
             print(f"❌ {test_name} failed with exception: {str(e)}")
     
-    # Test intake form (normal and crisis)
+    # Test intake form and get ID for booking tests
+    intake_id = None
     try:
         success, intake_id = tester.test_intake_form_normal()
         if success and intake_id:
@@ -355,6 +359,40 @@ def main():
         tester.test_intake_form_crisis()
     except Exception as e:
         print(f"❌ Crisis intake test failed: {str(e)}")
+    
+    # Phase 1B: Booking & Payment Tests
+    print("\n📋 Phase 1B Tests (Booking & Payment):")
+    print("-" * 40)
+    
+    booking_id = None
+    order_id = None
+    
+    # Test booking flow
+    try:
+        # Test slots
+        tester.test_slots_endpoint()
+        tester.test_slots_for_date()
+        
+        # Test booking creation
+        if intake_id:
+            success, booking_id = tester.test_booking_creation(intake_id)
+            if success and booking_id:
+                # Test booking retrieval
+                tester.test_booking_retrieval(booking_id)
+                
+                # Test payment flow
+                success, order_id = tester.test_payment_create_order(booking_id)
+                if success:
+                    tester.test_payment_verify(booking_id, order_id)
+                    
+                    # Test post-payment features
+                    tester.test_ics_download(booking_id)
+                    tester.test_email_notifications(booking_id)
+        else:
+            print("⚠️  Skipping booking tests - no valid intake ID")
+            
+    except Exception as e:
+        print(f"❌ Booking flow tests failed: {str(e)}")
     
     # Print results
     print("\n" + "=" * 60)
