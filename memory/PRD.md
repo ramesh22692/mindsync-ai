@@ -123,31 +123,33 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 
 ## Prioritized Backlog
 
-### P0 - Critical (Phase 1C - Client Portal)
-- [ ] Client authentication (login/signup)
-- [ ] Client portal dashboard
-- [ ] Appointment management (view/reschedule/cancel)
-- [ ] Consent forms
-- [ ] Post-session feedback
-
-### P1 - High Priority (Phase 1D - Admin Dashboard)
-- [ ] Admin authentication
-- [ ] Admin dashboard
-- [ ] Availability manager
+### P0 - Critical (Phase 1D - Admin Dashboard)
+- [ ] Admin authentication (separate role)
+- [ ] Admin dashboard overview
+- [ ] Availability manager (set working hours, blackouts)
 - [ ] Client profiles with intake summaries
-- [ ] Payment tracking
+- [ ] View all bookings and appointments
+- [ ] AI-generated intake summaries (admin-only)
+- [ ] Payment tracking and reports
 
-### P2 - Medium Priority (Phase 1E - Automation)
+### P1 - High Priority (Phase 1E - Real Integrations)
 - [ ] Real Razorpay integration (replace mock)
 - [ ] Real email sending (Resend/SendGrid)
-- [ ] WhatsApp reminders (generic)
+- [ ] WhatsApp reminders (generic messages)
 - [ ] Automated pre/post session workflows
-- [ ] Analytics events
+
+### P2 - Medium Priority
+- [ ] Analytics dashboard
+- [ ] SEO optimization
+- [ ] Multi-language support (Hindi)
+- [ ] Package booking discounts
+- [ ] Referral system
 
 ### P3 - Nice to Have
-- [ ] SEO optimization
-- [ ] Multi-language support
-- [ ] Package booking discounts
+- [ ] Video call integration
+- [ ] Resource library for clients
+- [ ] Blog/articles section
+- [ ] Testimonials management
 
 ---
 
