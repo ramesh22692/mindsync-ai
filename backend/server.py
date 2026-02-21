@@ -112,6 +112,55 @@ class ContactResponse(BaseModel):
     status: str = "new"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# ==================== BOOKING & PAYMENT MODELS ====================
+
+class TimeSlot(BaseModel):
+    date: str  # YYYY-MM-DD
+    time: str  # HH:MM (24hr format)
+    duration: int  # minutes
+    available: bool = True
+
+class BookingRequest(BaseModel):
+    intake_id: str
+    slot_date: str  # YYYY-MM-DD
+    slot_time: str  # HH:MM
+    duration: int  # 30, 45, or 60
+    service_type: str  # individual, couples, career, academic, habit
+
+class PaymentRequest(BaseModel):
+    booking_id: str
+    amount: int  # in paise
+    payment_method: str = "card"  # card, upi, netbanking
+
+class Booking(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    intake_id: str
+    client_name: str
+    client_email: str
+    client_whatsapp: str
+    service_type: str
+    slot_date: str
+    slot_time: str
+    duration: int
+    amount: int
+    status: str = "pending"  # pending, payment_pending, confirmed, cancelled, completed
+    payment_id: Optional[str] = None
+    payment_status: str = "pending"  # pending, processing, completed, failed, refunded
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class EmailNotification(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    to_email: str
+    subject: str
+    body: str
+    notification_type: str  # booking_confirmation, reminder_24h, reminder_2h, cancellation
+    booking_id: Optional[str] = None
+    status: str = "sent"  # In mock mode, always "sent"
+    sent_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # ==================== CHATBOT SYSTEM PROMPT ====================
 
 CHATBOT_SYSTEM_PROMPT = """You are the AI Receptionist for Mutha's Psychology Intelligence, a professional psychology consultation service in India.
