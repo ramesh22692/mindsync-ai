@@ -584,7 +584,7 @@ def main():
     # Test booking flow
     try:
         # Test slots
-        tester.test_slots_endpoint()
+        success, available_slots = tester.test_slots_endpoint()
         tester.test_slots_for_date()
         
         # Test booking creation
