@@ -155,10 +155,10 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 
 ## Next Tasks (Immediate)
 
-1. **Phase 1C**: Client authentication system
-2. **Phase 1C**: Client portal with booking history
-3. **Phase 1C**: Reschedule/cancel functionality
-4. **Phase 1C**: Post-session feedback form
+1. **Phase 1D**: Admin authentication (separate admin role)
+2. **Phase 1D**: Admin dashboard with appointments overview
+3. **Phase 1D**: Availability manager (working hours, blackouts)
+4. **Phase 1D**: Client profiles with intake summaries
 
 ---
 
@@ -167,7 +167,7 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 - Email notifications are MOCKED (logged to DB)
 
 ## Known Limitations
-- No client/admin authentication yet (Phase 1C/1D)
+- No admin dashboard yet (Phase 1D)
 - No real payment processing (MOCKED)
 - No real email sending (MOCKED)
 - WhatsApp integration pending (Phase 1E)
