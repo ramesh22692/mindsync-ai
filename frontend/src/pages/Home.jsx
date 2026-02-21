@@ -141,8 +141,8 @@ export const Home = () => {
             <div className="relative hidden lg:block">
               <div className="relative rounded-2xl overflow-hidden shadow-2xl">
                 <img
-                  src="https://images.pexels.com/photos/5619496/pexels-photo-5619496.jpeg"
-                  alt="Calm therapy environment"
+                  src="https://images.pexels.com/photos/3094215/pexels-photo-3094215.jpeg"
+                  alt="Peaceful mindfulness and mental wellness"
                   className="w-full h-[500px] object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
@@ -153,8 +153,8 @@ export const Home = () => {
                     <CheckCircle className="w-6 h-6 text-success" />
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground">500+ Sessions</p>
-                    <p className="text-sm text-muted-foreground">Completed safely</p>
+                    <p className="font-semibold text-foreground">9+ Years</p>
+                    <p className="text-sm text-muted-foreground">Teaching & Counselling</p>
                   </div>
                 </div>
               </div>
