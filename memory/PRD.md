@@ -86,6 +86,39 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 - `/api/payment/verify` - Verify payment (mocked)
 - `/api/notifications/{booking_id}` - Get notification logs
 
+### Phase 1C - January 2026
+**Client Authentication & Portal**
+- JWT-based authentication (email/password)
+- User registration and login
+- Client portal dashboard
+- View all bookings (upcoming and past)
+- Cancel booking (with refund policy display)
+- Reschedule booking to new slot
+- Post-session feedback with star rating
+- Protected routes with auth redirect
+
+**Content Updates**
+- Fixed homepage hero image (mindfulness/meditation instead of dentist chair)
+- Updated Saloni's credentials throughout:
+  - MA in Psychology
+  - BFA in Arts
+  - B.Ed in Education
+  - 9 Years Teaching Experience
+- New "The Unique Blend" section on About page
+- Tagline: "Where psychology meets creativity and education"
+
+**Backend APIs Added**
+- `/api/auth/register` - User registration
+- `/api/auth/login` - User login with JWT
+- `/api/auth/me` - Get current user
+- `/api/auth/profile` - Update profile
+- `/api/portal/bookings` - Get user's bookings
+- `/api/portal/booking/{id}` - Get specific booking
+- `/api/portal/booking/{id}/cancel` - Cancel booking
+- `/api/portal/booking/{id}/reschedule` - Reschedule booking
+- `/api/portal/feedback` - Submit feedback
+- `/api/portal/feedback/{booking_id}` - Get feedback
+
 ---
 
 ## Prioritized Backlog
