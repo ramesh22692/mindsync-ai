@@ -260,7 +260,7 @@ class PsychologyAPITester:
         }
         
         # Update profile using query parameters
-        success, data = self.run_test("Update Profile", "PUT", "api/auth/profile?full_name=Updated Test User&phone=+91 9876543211", 200, headers=headers)
+        success, data = self.run_test("Update Profile", "PUT", "api/auth/profile?full_name=Updated Test User&phone=+91 9876543211", 200, data=None, headers=headers)
         
         if success and isinstance(data, dict) and data.get('status') == 'updated':
             print(f"   ✅ Profile updated successfully")
