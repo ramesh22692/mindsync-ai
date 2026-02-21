@@ -620,6 +620,193 @@ class PsychologyAPITester:
             return True
         return False
 
+    # ==================== PHASE 1D: ADMIN TESTS ====================
+
+    def test_admin_login(self):
+        """Test admin login with specific credentials"""
+        admin_credentials = {
+            "email": "saloni@muthapsych.com",
+            "password": "admin123"
+        }
+        
+        success, data = self.run_test("Admin Login", "POST", "api/auth/login", 200, admin_credentials)
+        
+        if success and isinstance(data, dict) and data.get('access_token'):
+            if data.get('user', {}).get('role') == 'admin':
+                self.admin_token = data['access_token']
+                print(f"   ✅ Admin logged in: {data['user']['full_name']} - Role: {data['user']['role']}")
+                return True
+            else:
+                print(f"   ❌ User is not admin: {data.get('user', {}).get('role')}")
+                return False
+        return False
+
+    def test_admin_stats(self):
+        """Test admin dashboard statistics"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping admin stats - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        success, data = self.run_test("Admin Stats", "GET", "api/admin/stats", 200, headers=headers)
+        
+        if success and isinstance(data, dict):
+            required_fields = ['total_clients', 'total_bookings', 'confirmed_bookings', 'total_revenue', 'avg_rating']
+            missing_fields = [field for field in required_fields if field not in data]
+            
+            if not missing_fields:
+                print(f"   ✅ Stats retrieved - Clients: {data['total_clients']}, Bookings: {data['total_bookings']}, Revenue: ₹{data['total_revenue']}")
+                return True
+            else:
+                print(f"   ❌ Missing fields in stats: {missing_fields}")
+                return False
+        return False
+
+    def test_admin_bookings_list(self):
+        """Test admin bookings list with filters"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping admin bookings - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        # Test all bookings
+        success, data = self.run_test("Admin All Bookings", "GET", "api/admin/bookings", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and 'bookings' in data:
+            all_bookings = data['bookings']
+            print(f"   ✅ Found {len(all_bookings)} total bookings")
+            
+            # Test with status filter
+            success2, data2 = self.run_test("Admin Confirmed Bookings", "GET", "api/admin/bookings?status=confirmed", 200, headers=headers)
+            
+            if success2 and isinstance(data2, dict) and 'bookings' in data2:
+                confirmed_bookings = data2['bookings']
+                print(f"   ✅ Found {len(confirmed_bookings)} confirmed bookings")
+                return True, all_bookings
+            return False, []
+        return False, []
+
+    def test_admin_booking_detail(self, booking_id):
+        """Test admin booking detail with intake summary"""
+        if not hasattr(self, 'admin_token') or not self.admin_token or not booking_id:
+            print("   ⚠️  Skipping admin booking detail - no admin token or booking ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        success, data = self.run_test("Admin Booking Detail", "GET", f"api/admin/booking/{booking_id}", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and 'booking' in data:
+            booking = data['booking']
+            intake = data.get('intake')
+            print(f"   ✅ Booking detail retrieved - Client: {booking.get('client_name')}")
+            if intake:
+                print(f"   ✅ Intake data included")
+            return True
+        return False
+
+    def test_admin_clients_list(self):
+        """Test admin clients list with booking counts"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping admin clients - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        success, data = self.run_test("Admin Clients List", "GET", "api/admin/clients", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and 'clients' in data:
+            clients = data['clients']
+            print(f"   ✅ Found {len(clients)} clients")
+            
+            # Check if booking counts are included
+            if clients and 'booking_count' in clients[0]:
+                print(f"   ✅ Booking counts included for clients")
+            return True, clients
+        return False, []
+
+    def test_admin_availability_settings(self):
+        """Test admin availability settings"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping availability settings - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        # Test GET availability
+        success, data = self.run_test("Get Availability Settings", "GET", "api/admin/availability", 200, headers=headers)
+        
+        if success and isinstance(data, dict):
+            weekly_slots = data.get('weekly_slots', [])
+            blackout_dates = data.get('blackout_dates', [])
+            print(f"   ✅ Availability retrieved - {len(weekly_slots)} weekly slots, {len(blackout_dates)} blackout dates")
+            return True
+        return False
+
+    def test_admin_blackout_dates(self):
+        """Test admin blackout dates management"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping blackout dates - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        # Test ADD blackout date
+        from datetime import datetime, timedelta
+        future_date = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        success, data = self.run_test("Add Blackout Date", "POST", f"api/admin/blackout?date={future_date}&reason=Testing", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'added':
+            print(f"   ✅ Blackout date added: {future_date}")
+            
+            # Test REMOVE blackout date
+            success2, data2 = self.run_test("Remove Blackout Date", "DELETE", f"api/admin/blackout/{future_date}", 200, headers=headers)
+            
+            if success2 and isinstance(data2, dict) and data2.get('status') == 'removed':
+                print(f"   ✅ Blackout date removed: {future_date}")
+                return True
+        return False
+
+    def test_non_admin_access_denied(self):
+        """Test that non-admin users cannot access admin routes"""
+        if not self.auth_token:
+            print("   ⚠️  Skipping non-admin test - no regular user token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        # Try to access admin stats with regular user token
+        success, data = self.run_test("Non-Admin Access Denied", "GET", "api/admin/stats", 403, headers=headers)
+        
+        if success:
+            print(f"   ✅ Non-admin access correctly denied (403)")
+            return True
+        return False
+
 def main():
     print("🚀 Starting Psychology Intelligence API Tests (Phase 1C)")
     print("=" * 60)
