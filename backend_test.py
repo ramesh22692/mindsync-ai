@@ -829,6 +829,116 @@ class PsychologyAPITester:
             return True
         return False
 
+    # ==================== PHASE 1E: NOTIFICATION TESTS ====================
+
+    def test_admin_notifications_list(self):
+        """Test admin notifications list (email + WhatsApp logs)"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping admin notifications - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        success, data = self.run_test("Admin Notifications List", "GET", "api/admin/notifications", 200, headers=headers)
+        
+        if success and isinstance(data, dict):
+            email_notifications = data.get('email_notifications', [])
+            whatsapp_notifications = data.get('whatsapp_notifications', [])
+            email_count = data.get('email_count', 0)
+            whatsapp_count = data.get('whatsapp_count', 0)
+            
+            print(f"   ✅ Found {email_count} email notifications, {whatsapp_count} WhatsApp notifications")
+            return True, email_notifications, whatsapp_notifications
+        return False, [], []
+
+    def test_admin_notification_stats(self):
+        """Test admin notification statistics API"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping notification stats - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        success, data = self.run_test("Admin Notification Stats", "GET", "api/admin/notification-stats", 200, headers=headers)
+        
+        if success and isinstance(data, dict):
+            email_stats = data.get('email', {})
+            whatsapp_stats = data.get('whatsapp', {})
+            scheduler_running = data.get('scheduler_running', False)
+            
+            print(f"   ✅ Email total: {email_stats.get('total', 0)}, WhatsApp total: {whatsapp_stats.get('total', 0)}")
+            print(f"   ✅ Scheduler running: {scheduler_running}")
+            
+            # Check if scheduler is running
+            if scheduler_running:
+                print(f"   ✅ Reminder scheduler is active")
+                return True, True
+            else:
+                print(f"   ⚠️  Reminder scheduler is not running")
+                return True, False
+        return False, False
+
+    def test_manual_reminder_sending(self, booking_id):
+        """Test manual reminder sending for a booking"""
+        if not hasattr(self, 'admin_token') or not self.admin_token or not booking_id:
+            print("   ⚠️  Skipping manual reminder - no admin token or booking ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        # Test 24h reminder
+        success, data = self.run_test("Manual 24h Reminder", "POST", f"api/admin/send-reminder/{booking_id}?reminder_type=reminder_24h", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'sent':
+            print(f"   ✅ 24h reminder sent successfully")
+            
+            # Test 2h reminder
+            success2, data2 = self.run_test("Manual 2h Reminder", "POST", f"api/admin/send-reminder/{booking_id}?reminder_type=reminder_2h", 200, headers=headers)
+            
+            if success2 and isinstance(data2, dict) and data2.get('status') == 'sent':
+                print(f"   ✅ 2h reminder sent successfully")
+                return True
+        return False
+
+    def test_notification_filtering(self):
+        """Test notification filtering by type"""
+        if not hasattr(self, 'admin_token') or not self.admin_token:
+            print("   ⚠️  Skipping notification filtering - no admin token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        # Test filtering by booking_confirmation
+        success, data = self.run_test("Filter Booking Confirmations", "GET", "api/admin/notifications?notification_type=booking_confirmation", 200, headers=headers)
+        
+        if success and isinstance(data, dict):
+            email_notifications = data.get('email_notifications', [])
+            # Check if all notifications are of the requested type
+            if email_notifications:
+                all_correct_type = all(notif.get('notification_type') == 'booking_confirmation' for notif in email_notifications)
+                if all_correct_type:
+                    print(f"   ✅ Filtering works - found {len(email_notifications)} booking confirmation emails")
+                    return True
+                else:
+                    print(f"   ❌ Filtering failed - mixed notification types found")
+                    return False
+            else:
+                print(f"   ✅ No booking confirmation notifications found (expected for new system)")
+                return True
+        return False
+
 def main():
     print("🚀 Starting Psychology Intelligence API Tests (Phase 1C)")
     print("=" * 60)
