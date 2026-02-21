@@ -926,6 +926,44 @@ def main():
     except Exception as e:
         print(f"❌ Booking flow tests failed: {str(e)}")
     
+    # Phase 1D: Admin Tests
+    print("\n📋 Phase 1D Tests (Admin Dashboard):")
+    print("-" * 40)
+    
+    admin_tests = [
+        ("Admin Login", tester.test_admin_login),
+        ("Admin Stats", tester.test_admin_stats),
+        ("Admin Availability Settings", tester.test_admin_availability_settings),
+        ("Admin Blackout Dates", tester.test_admin_blackout_dates),
+        ("Non-Admin Access Denied", tester.test_non_admin_access_denied),
+    ]
+    
+    # Run admin tests
+    for test_name, test_func in admin_tests:
+        try:
+            test_func()
+        except Exception as e:
+            print(f"❌ {test_name} failed with exception: {str(e)}")
+    
+    # Test admin features with existing data
+    try:
+        success, all_bookings = tester.test_admin_bookings_list()
+        if success and all_bookings:
+            # Test booking detail with first booking
+            first_booking_id = all_bookings[0].get('id')
+            if first_booking_id:
+                tester.test_admin_booking_detail(first_booking_id)
+        
+        success, clients = tester.test_admin_clients_list()
+        if success and clients:
+            # Test client detail with first client
+            first_client_id = clients[0].get('id')
+            if first_client_id:
+                tester.test_admin_client_detail(first_client_id)
+                
+    except Exception as e:
+        print(f"❌ Admin data tests failed: {str(e)}")
+    
     # Print results
     print("\n" + "=" * 60)
     print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
