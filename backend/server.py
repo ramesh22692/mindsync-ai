@@ -316,6 +316,318 @@ Always end with a helpful suggestion or question to guide the user."""
 async def root():
     return {"message": "Mutha's Psychology Intelligence API"}
 
+# ==================== AUTH ROUTES ====================
+
+@api_router.post("/auth/register", response_model=TokenResponse)
+async def register_user(user_data: UserRegister):
+    """Register a new user"""
+    # Check if email already exists
+    existing = await db.users.find_one({"email": user_data.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Create user
+    user = User(
+        email=user_data.email.lower(),
+        full_name=user_data.full_name,
+        phone=user_data.phone,
+        password_hash=hash_password(user_data.password),
+        role="client"
+    )
+    
+    doc = user.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.users.insert_one(doc)
+    
+    # Create token
+    token = create_access_token(user.id, user.email, user.role)
+    
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            phone=user.phone,
+            role=user.role
+        )
+    )
+
+@api_router.post("/auth/login", response_model=TokenResponse)
+async def login_user(credentials: UserLogin):
+    """Login user and return token"""
+    user = await db.users.find_one({"email": credentials.email.lower()}, {"_id": 0})
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    if not user.get("is_active", True):
+        raise HTTPException(status_code=401, detail="Account is disabled")
+    
+    # Create token
+    token = create_access_token(user["id"], user["email"], user["role"])
+    
+    return TokenResponse(
+        access_token=token,
+        user=UserResponse(
+            id=user["id"],
+            email=user["email"],
+            full_name=user["full_name"],
+            phone=user.get("phone"),
+            role=user["role"]
+        )
+    )
+
+@api_router.get("/auth/me", response_model=UserResponse)
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """Get current user profile"""
+    return UserResponse(
+        id=current_user["id"],
+        email=current_user["email"],
+        full_name=current_user["full_name"],
+        phone=current_user.get("phone"),
+        role=current_user["role"]
+    )
+
+@api_router.put("/auth/profile")
+async def update_profile(
+    full_name: Optional[str] = None,
+    phone: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Update user profile"""
+    updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if full_name:
+        updates["full_name"] = full_name
+    if phone:
+        updates["phone"] = phone
+    
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": updates}
+    )
+    
+    return {"status": "updated"}
+
+# ==================== CLIENT PORTAL ROUTES ====================
+
+@api_router.get("/portal/bookings")
+async def get_my_bookings(current_user: dict = Depends(get_current_user)):
+    """Get all bookings for current user"""
+    bookings = await db.bookings.find(
+        {"client_email": current_user["email"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return {"bookings": bookings}
+
+@api_router.get("/portal/booking/{booking_id}")
+async def get_my_booking(booking_id: str, current_user: dict = Depends(get_current_user)):
+    """Get specific booking for current user"""
+    booking = await db.bookings.find_one(
+        {"id": booking_id, "client_email": current_user["email"]},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return booking
+
+@api_router.post("/portal/booking/{booking_id}/cancel")
+async def cancel_my_booking(booking_id: str, current_user: dict = Depends(get_current_user)):
+    """Cancel a booking (if within policy window)"""
+    booking = await db.bookings.find_one(
+        {"id": booking_id, "client_email": current_user["email"]},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["status"] == "cancelled":
+        raise HTTPException(status_code=400, detail="Booking already cancelled")
+    
+    if booking["status"] == "completed":
+        raise HTTPException(status_code=400, detail="Cannot cancel completed booking")
+    
+    # Check if within 24 hours
+    india_tz = pytz.timezone('Asia/Kolkata')
+    slot_datetime = datetime.strptime(f"{booking['slot_date']} {booking['slot_time']}", "%Y-%m-%d %H:%M")
+    slot_datetime = india_tz.localize(slot_datetime)
+    now = datetime.now(india_tz)
+    
+    hours_until_session = (slot_datetime - now).total_seconds() / 3600
+    
+    refund_eligible = hours_until_session > 24
+    
+    # Update booking status
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {
+            "$set": {
+                "status": "cancelled",
+                "cancelled_at": datetime.now(timezone.utc).isoformat(),
+                "refund_eligible": refund_eligible,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Send cancellation email (mocked)
+    await send_mock_email(
+        to_email=booking["client_email"],
+        subject="Booking Cancelled - Mutha's Psychology Intelligence",
+        body=f"""
+Dear {booking["client_name"]},
+
+Your booking has been cancelled.
+
+Booking Details:
+- Date: {booking["slot_date"]}
+- Time: {booking["slot_time"]} IST
+
+{"Refund Status: Eligible for full refund (cancelled 24+ hours before session)" if refund_eligible else "Refund Status: Not eligible (cancelled within 24 hours)"}
+
+If you'd like to rebook, please visit our website.
+
+Best regards,
+Saloni Mutha
+        """,
+        notification_type="cancellation",
+        booking_id=booking_id
+    )
+    
+    return {
+        "status": "cancelled",
+        "refund_eligible": refund_eligible,
+        "message": "Booking cancelled successfully" + (". Refund will be processed in 5-7 business days." if refund_eligible else ". No refund as cancellation was within 24 hours.")
+    }
+
+@api_router.post("/portal/booking/{booking_id}/reschedule")
+async def reschedule_booking(
+    booking_id: str,
+    new_date: str,
+    new_time: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Reschedule a booking to a new slot"""
+    booking = await db.bookings.find_one(
+        {"id": booking_id, "client_email": current_user["email"]},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking["status"] not in ["confirmed", "payment_pending"]:
+        raise HTTPException(status_code=400, detail="Cannot reschedule this booking")
+    
+    # Check if new slot is available
+    existing = await db.bookings.find_one({
+        "slot_date": new_date,
+        "slot_time": new_time,
+        "status": {"$in": ["confirmed", "payment_pending"]},
+        "id": {"$ne": booking_id}
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="New slot is not available")
+    
+    old_slot = f"{booking['slot_date']} at {booking['slot_time']}"
+    
+    # Update booking
+    await db.bookings.update_one(
+        {"id": booking_id},
+        {
+            "$set": {
+                "slot_date": new_date,
+                "slot_time": new_time,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        }
+    )
+    
+    # Send reschedule email (mocked)
+    await send_mock_email(
+        to_email=booking["client_email"],
+        subject="Booking Rescheduled - Mutha's Psychology Intelligence",
+        body=f"""
+Dear {booking["client_name"]},
+
+Your booking has been rescheduled.
+
+Previous Slot: {old_slot} IST
+New Slot: {new_date} at {new_time} IST
+
+You will receive a video call link 24 hours before your session.
+
+Best regards,
+Saloni Mutha
+        """,
+        notification_type="reschedule",
+        booking_id=booking_id
+    )
+    
+    return {
+        "status": "rescheduled",
+        "old_slot": old_slot,
+        "new_slot": f"{new_date} at {new_time}",
+        "message": "Booking rescheduled successfully"
+    }
+
+@api_router.post("/portal/feedback")
+async def submit_feedback(feedback_data: FeedbackSubmit, current_user: dict = Depends(get_current_user)):
+    """Submit feedback for a completed session"""
+    # Verify booking belongs to user and is completed
+    booking = await db.bookings.find_one(
+        {"id": feedback_data.booking_id, "client_email": current_user["email"]},
+        {"_id": 0}
+    )
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Check if feedback already exists
+    existing_feedback = await db.feedback.find_one({"booking_id": feedback_data.booking_id})
+    if existing_feedback:
+        raise HTTPException(status_code=400, detail="Feedback already submitted for this booking")
+    
+    # Create feedback
+    feedback = Feedback(
+        booking_id=feedback_data.booking_id,
+        user_id=current_user["id"],
+        rating=feedback_data.rating,
+        feedback_text=feedback_data.feedback_text,
+        would_recommend=feedback_data.would_recommend
+    )
+    
+    doc = feedback.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    
+    await db.feedback.insert_one(doc)
+    
+    return {"status": "submitted", "message": "Thank you for your feedback!"}
+
+@api_router.get("/portal/feedback/{booking_id}")
+async def get_feedback(booking_id: str, current_user: dict = Depends(get_current_user)):
+    """Get feedback for a booking"""
+    feedback = await db.feedback.find_one(
+        {"booking_id": booking_id, "user_id": current_user["id"]},
+        {"_id": 0}
+    )
+    
+    if not feedback:
+        return {"exists": False}
+    
+    return {"exists": True, "feedback": feedback}
+
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.model_dump()
