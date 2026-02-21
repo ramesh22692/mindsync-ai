@@ -287,8 +287,8 @@ export const Home = () => {
               </CardContent>
               <div className="hidden md:block bg-secondary/30 p-8 md:p-12">
                 <img
-                  src="https://images.unsplash.com/photo-1745100552003-c3c98c4a64b3"
-                  alt="Mindfulness and balance"
+                  src="https://images.pexels.com/photos/6246200/pexels-photo-6246200.jpeg"
+                  alt="Wellness and self-care"
                   className="w-full h-full object-cover rounded-xl"
                 />
               </div>
