@@ -6,6 +6,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -32,6 +33,14 @@ security = HTTPBearer(auto_error=False)
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+# Initialize notification services
+from services.notifications import EmailService, WhatsAppService
+from services.scheduler import ReminderScheduler, reminder_check_loop
+
+email_service = EmailService(db)
+whatsapp_service = WhatsAppService(db)
+reminder_scheduler = ReminderScheduler(db, email_service, whatsapp_service)
 
 # Create the main app without a prefix
 app = FastAPI()
