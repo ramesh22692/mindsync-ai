@@ -228,6 +228,44 @@ async def get_optional_user(credentials: HTTPAuthorizationCredentials = Depends(
     except HTTPException:
         return None
 
+async def get_admin_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Get current user and verify admin role"""
+    user = await get_current_user(credentials)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+# ==================== ADMIN MODELS ====================
+
+class AvailabilitySlot(BaseModel):
+    day_of_week: int  # 0=Monday, 6=Sunday
+    start_time: str  # HH:MM
+    end_time: str  # HH:MM
+    is_active: bool = True
+
+class BlackoutDate(BaseModel):
+    date: str  # YYYY-MM-DD
+    reason: Optional[str] = None
+
+class AvailabilitySettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    weekly_slots: List[dict] = []
+    blackout_dates: List[dict] = []
+    buffer_minutes: int = 15  # Buffer between sessions
+    advance_booking_days: int = 30  # How far in advance can book
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AdminStats(BaseModel):
+    total_clients: int
+    total_bookings: int
+    confirmed_bookings: int
+    completed_sessions: int
+    cancelled_bookings: int
+    total_revenue: int
+    pending_revenue: int
+    avg_rating: float
+
 # ==================== BOOKING & PAYMENT MODELS ====================
 
 class TimeSlot(BaseModel):
