@@ -666,6 +666,374 @@ async def get_feedback(booking_id: str, current_user: dict = Depends(get_current
     
     return {"exists": True, "feedback": feedback}
 
+# ==================== ADMIN ROUTES ====================
+
+@api_router.post("/admin/setup")
+async def setup_admin(email: str, password: str, secret_key: str):
+    """One-time admin setup (requires secret key)"""
+    # Simple secret key check - in production, use env variable
+    if secret_key != "mutha_admin_setup_2026":
+        raise HTTPException(status_code=403, detail="Invalid setup key")
+    
+    # Check if admin already exists
+    existing = await db.users.find_one({"role": "admin"})
+    if existing:
+        raise HTTPException(status_code=400, detail="Admin already exists")
+    
+    # Create admin user
+    admin = User(
+        email=email.lower(),
+        full_name="Saloni Mutha",
+        password_hash=hash_password(password),
+        role="admin"
+    )
+    
+    doc = admin.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.users.insert_one(doc)
+    
+    # Create default availability settings
+    default_slots = [
+        {"day_of_week": i, "start_time": "10:00", "end_time": "20:00", "is_active": i < 6}  # Mon-Sat
+        for i in range(7)
+    ]
+    
+    availability = AvailabilitySettings(weekly_slots=default_slots)
+    avail_doc = availability.model_dump()
+    avail_doc['updated_at'] = avail_doc['updated_at'].isoformat()
+    await db.availability_settings.insert_one(avail_doc)
+    
+    return {"status": "success", "message": "Admin account created"}
+
+@api_router.get("/admin/stats")
+async def get_admin_stats(admin: dict = Depends(get_admin_user)):
+    """Get dashboard statistics"""
+    # Count clients
+    total_clients = await db.users.count_documents({"role": "client"})
+    
+    # Count bookings by status
+    total_bookings = await db.bookings.count_documents({})
+    confirmed_bookings = await db.bookings.count_documents({"status": "confirmed"})
+    completed_sessions = await db.bookings.count_documents({"status": "completed"})
+    cancelled_bookings = await db.bookings.count_documents({"status": "cancelled"})
+    
+    # Calculate revenue
+    confirmed_revenue = await db.bookings.aggregate([
+        {"$match": {"status": {"$in": ["confirmed", "completed"]}}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    total_revenue = confirmed_revenue[0]["total"] if confirmed_revenue else 0
+    
+    pending_revenue = await db.bookings.aggregate([
+        {"$match": {"status": "payment_pending"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    pending = pending_revenue[0]["total"] if pending_revenue else 0
+    
+    # Average rating
+    ratings = await db.feedback.aggregate([
+        {"$group": {"_id": None, "avg": {"$avg": "$rating"}}}
+    ]).to_list(1)
+    avg_rating = round(ratings[0]["avg"], 1) if ratings else 0
+    
+    return {
+        "total_clients": total_clients,
+        "total_bookings": total_bookings,
+        "confirmed_bookings": confirmed_bookings,
+        "completed_sessions": completed_sessions,
+        "cancelled_bookings": cancelled_bookings,
+        "total_revenue": total_revenue,
+        "pending_revenue": pending,
+        "avg_rating": avg_rating
+    }
+
+@api_router.get("/admin/bookings")
+async def get_all_bookings(
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    admin: dict = Depends(get_admin_user)
+):
+    """Get all bookings with filters"""
+    query = {}
+    
+    if status:
+        query["status"] = status
+    
+    if date_from:
+        query["slot_date"] = {"$gte": date_from}
+    
+    if date_to:
+        if "slot_date" in query:
+            query["slot_date"]["$lte"] = date_to
+        else:
+            query["slot_date"] = {"$lte": date_to}
+    
+    bookings = await db.bookings.find(query, {"_id": 0}).sort("slot_date", -1).to_list(500)
+    
+    return {"bookings": bookings, "total": len(bookings)}
+
+@api_router.get("/admin/booking/{booking_id}")
+async def get_booking_admin(booking_id: str, admin: dict = Depends(get_admin_user)):
+    """Get booking details with intake info"""
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Get intake info
+    intake = await db.intake_responses.find_one(
+        {"id": booking.get("intake_id")},
+        {"_id": 0}
+    )
+    
+    # Get feedback if exists
+    feedback = await db.feedback.find_one({"booking_id": booking_id}, {"_id": 0})
+    
+    return {
+        "booking": booking,
+        "intake": intake,
+        "feedback": feedback
+    }
+
+@api_router.put("/admin/booking/{booking_id}/status")
+async def update_booking_status(
+    booking_id: str,
+    new_status: str,
+    admin: dict = Depends(get_admin_user)
+):
+    """Update booking status (admin only)"""
+    valid_statuses = ["pending", "payment_pending", "confirmed", "completed", "cancelled"]
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    result = await db.bookings.update_one(
+        {"id": booking_id},
+        {"$set": {"status": new_status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return {"status": "updated", "new_status": new_status}
+
+@api_router.get("/admin/clients")
+async def get_all_clients(admin: dict = Depends(get_admin_user)):
+    """Get all clients with booking counts"""
+    clients = await db.users.find(
+        {"role": "client"},
+        {"_id": 0, "password_hash": 0}
+    ).to_list(500)
+    
+    # Add booking counts for each client
+    for client in clients:
+        booking_count = await db.bookings.count_documents({"client_email": client["email"]})
+        client["booking_count"] = booking_count
+    
+    return {"clients": clients, "total": len(clients)}
+
+@api_router.get("/admin/client/{client_id}")
+async def get_client_details(client_id: str, admin: dict = Depends(get_admin_user)):
+    """Get client profile with all bookings and intakes"""
+    client = await db.users.find_one(
+        {"id": client_id, "role": "client"},
+        {"_id": 0, "password_hash": 0}
+    )
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Get all bookings for this client
+    bookings = await db.bookings.find(
+        {"client_email": client["email"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    # Get all intakes
+    intake_ids = [b.get("intake_id") for b in bookings if b.get("intake_id")]
+    intakes = await db.intake_responses.find(
+        {"id": {"$in": intake_ids}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return {
+        "client": client,
+        "bookings": bookings,
+        "intakes": intakes
+    }
+
+@api_router.get("/admin/availability")
+async def get_availability(admin: dict = Depends(get_admin_user)):
+    """Get current availability settings"""
+    settings = await db.availability_settings.find_one({}, {"_id": 0})
+    
+    if not settings:
+        # Return default settings
+        return {
+            "weekly_slots": [
+                {"day_of_week": i, "start_time": "10:00", "end_time": "20:00", "is_active": i < 6}
+                for i in range(7)
+            ],
+            "blackout_dates": [],
+            "buffer_minutes": 15,
+            "advance_booking_days": 30
+        }
+    
+    return settings
+
+@api_router.put("/admin/availability")
+async def update_availability(
+    weekly_slots: Optional[List[dict]] = None,
+    blackout_dates: Optional[List[dict]] = None,
+    buffer_minutes: Optional[int] = None,
+    advance_booking_days: Optional[int] = None,
+    admin: dict = Depends(get_admin_user)
+):
+    """Update availability settings"""
+    updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if weekly_slots is not None:
+        updates["weekly_slots"] = weekly_slots
+    if blackout_dates is not None:
+        updates["blackout_dates"] = blackout_dates
+    if buffer_minutes is not None:
+        updates["buffer_minutes"] = buffer_minutes
+    if advance_booking_days is not None:
+        updates["advance_booking_days"] = advance_booking_days
+    
+    # Upsert availability settings
+    await db.availability_settings.update_one(
+        {},
+        {"$set": updates},
+        upsert=True
+    )
+    
+    return {"status": "updated"}
+
+@api_router.post("/admin/blackout")
+async def add_blackout_date(
+    date: str,
+    reason: Optional[str] = None,
+    admin: dict = Depends(get_admin_user)
+):
+    """Add a blackout date"""
+    await db.availability_settings.update_one(
+        {},
+        {"$push": {"blackout_dates": {"date": date, "reason": reason}}},
+        upsert=True
+    )
+    
+    return {"status": "added", "date": date}
+
+@api_router.delete("/admin/blackout/{date}")
+async def remove_blackout_date(date: str, admin: dict = Depends(get_admin_user)):
+    """Remove a blackout date"""
+    await db.availability_settings.update_one(
+        {},
+        {"$pull": {"blackout_dates": {"date": date}}}
+    )
+    
+    return {"status": "removed", "date": date}
+
+@api_router.get("/admin/intake-summary/{booking_id}")
+async def generate_intake_summary(booking_id: str, admin: dict = Depends(get_admin_user)):
+    """Generate AI summary of intake for session prep (admin only)"""
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    intake = await db.intake_responses.find_one(
+        {"id": booking.get("intake_id")},
+        {"_id": 0}
+    )
+    
+    if not intake:
+        return {"summary": "No intake data available", "suggestions": []}
+    
+    form_data = intake.get("form_data", {})
+    
+    # Generate simple summary (can be enhanced with LLM)
+    summary = f"""
+Client: {form_data.get('full_name', 'N/A')}
+Age Range: {form_data.get('age_range', 'N/A')}
+Location: {form_data.get('city', 'N/A')}
+Language: {form_data.get('preferred_language', 'N/A')}
+
+Concern Areas: {', '.join(form_data.get('concern_areas', []))}
+Stress Level: {form_data.get('stress_level', 'N/A')}/5
+
+Additional Notes: {form_data.get('optional_note', 'None provided')}
+    """.strip()
+    
+    # Simple suggestions based on concerns
+    suggestions = []
+    concerns = form_data.get('concern_areas', [])
+    
+    if 'anxiety' in concerns:
+        suggestions.append("Consider grounding exercises and breathing techniques")
+    if 'work_stress' in concerns:
+        suggestions.append("Explore work-life boundaries and stress management")
+    if 'relationships' in concerns:
+        suggestions.append("Focus on communication patterns and attachment styles")
+    if 'self_esteem' in concerns:
+        suggestions.append("Work on self-compassion and cognitive restructuring")
+    if 'career' in concerns:
+        suggestions.append("Discuss career values, goals, and decision-making frameworks")
+    if 'exam_stress' in concerns:
+        suggestions.append("Cover study techniques, time management, and test anxiety coping")
+    
+    return {
+        "summary": summary,
+        "suggestions": suggestions,
+        "auto_tags": intake.get("auto_tags", []),
+        "disclaimer": "AI-generated summary for operational support; not diagnostic."
+    }
+
+@api_router.get("/admin/reports/revenue")
+async def get_revenue_report(
+    period: str = "month",  # week, month, year
+    admin: dict = Depends(get_admin_user)
+):
+    """Get revenue report"""
+    india_tz = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(india_tz)
+    
+    if period == "week":
+        start_date = (now - timedelta(days=7)).strftime("%Y-%m-%d")
+    elif period == "month":
+        start_date = (now - timedelta(days=30)).strftime("%Y-%m-%d")
+    else:
+        start_date = (now - timedelta(days=365)).strftime("%Y-%m-%d")
+    
+    # Get completed bookings in period
+    bookings = await db.bookings.find({
+        "status": {"$in": ["confirmed", "completed"]},
+        "slot_date": {"$gte": start_date}
+    }, {"_id": 0}).to_list(1000)
+    
+    total_revenue = sum(b.get("amount", 0) for b in bookings)
+    booking_count = len(bookings)
+    
+    # Group by service type
+    by_service = {}
+    for b in bookings:
+        service = b.get("service_type", "unknown")
+        if service not in by_service:
+            by_service[service] = {"count": 0, "revenue": 0}
+        by_service[service]["count"] += 1
+        by_service[service]["revenue"] += b.get("amount", 0)
+    
+    return {
+        "period": period,
+        "start_date": start_date,
+        "total_revenue": total_revenue,
+        "booking_count": booking_count,
+        "by_service": by_service
+    }
+
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
     status_dict = input.model_dump()
