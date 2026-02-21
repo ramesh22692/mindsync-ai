@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Brain, Phone } from "lucide-react";
+import { Menu, Brain, Phone, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -8,6 +8,14 @@ import {
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/context/AuthContext";
 
 const navLinks = [
   { name: "Services", href: "/services" },
@@ -21,6 +29,7 @@ const navLinks = [
 export const Navbar = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
 
   return (
     <>
@@ -71,8 +80,39 @@ export const Navbar = () => {
             ))}
           </div>
 
-          {/* CTA Button */}
-          <div className="hidden md:flex items-center gap-4">
+          {/* CTA Buttons */}
+          <div className="hidden md:flex items-center gap-3">
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2" data-testid="user-menu-btn">
+                    <User className="w-4 h-4" />
+                    <span className="max-w-[100px] truncate">{user?.full_name}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/portal" className="w-full cursor-pointer">
+                      My Bookings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={logout}
+                    className="cursor-pointer text-destructive"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link to="/auth">
+                <Button variant="outline" data-testid="nav-login-btn">
+                  Sign In
+                </Button>
+              </Link>
+            )}
             <Link to="/book">
               <Button 
                 className="btn-primary"
@@ -92,6 +132,18 @@ export const Navbar = () => {
             </SheetTrigger>
             <SheetContent side="right" className="w-80">
               <div className="flex flex-col gap-6 mt-8">
+                {isAuthenticated && (
+                  <div className="pb-4 border-b border-border">
+                    <p className="text-sm text-muted-foreground">Signed in as</p>
+                    <p className="font-medium truncate">{user?.full_name}</p>
+                    <SheetClose asChild>
+                      <Link to="/portal" className="inline-block mt-2">
+                        <Button variant="outline" size="sm">My Bookings</Button>
+                      </Link>
+                    </SheetClose>
+                  </div>
+                )}
+                
                 {navLinks.map((link) => (
                   <SheetClose asChild key={link.href}>
                     <Link
@@ -107,13 +159,36 @@ export const Navbar = () => {
                     </Link>
                   </SheetClose>
                 ))}
-                <SheetClose asChild>
-                  <Link to="/book" className="mt-4">
-                    <Button className="btn-primary w-full" data-testid="mobile-book-btn">
-                      Book Appointment
+                
+                <div className="mt-4 space-y-3">
+                  {!isAuthenticated && (
+                    <SheetClose asChild>
+                      <Link to="/auth">
+                        <Button variant="outline" className="w-full">Sign In</Button>
+                      </Link>
+                    </SheetClose>
+                  )}
+                  <SheetClose asChild>
+                    <Link to="/book">
+                      <Button className="btn-primary w-full" data-testid="mobile-book-btn">
+                        Book Appointment
+                      </Button>
+                    </Link>
+                  </SheetClose>
+                  {isAuthenticated && (
+                    <Button 
+                      variant="ghost" 
+                      className="w-full text-destructive"
+                      onClick={() => {
+                        logout();
+                        setIsOpen(false);
+                      }}
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Logout
                     </Button>
-                  </Link>
-                </SheetClose>
+                  )}
+                </div>
               </div>
             </SheetContent>
           </Sheet>
