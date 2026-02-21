@@ -151,45 +151,49 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 - [ ] Blog/articles section
 - [ ] Testimonials management
 
-### Phase 1D - January 2026
-**Admin Dashboard**
-- Admin authentication (separate role)
-- Dashboard with stats: Total Clients, Bookings, Revenue, Avg Rating
-- All bookings list with status filters
-- Booking detail with client info and AI intake summary
-- Client profiles with booking history
-- Availability settings: Weekly schedule, Blackout dates, Buffer times
-- Revenue reports by period
+### Phase 1E - January 2026
+**Automated Notifications & Workflows**
+- Email service abstraction (mock/Resend/SendGrid ready)
+- WhatsApp service abstraction (mock/Twilio ready)
+- Automated reminder scheduler (runs every 30 min)
+- T-24h and T-2h session reminders
+- Email templates for: booking confirmation, reminders, cancellation, reschedule, feedback request
+- WhatsApp templates (generic, no sensitive info)
+- Admin notifications dashboard with stats
+- Manual reminder trigger capability
+- Notification logs with status tracking
 
 **Backend APIs Added**
-- `/api/admin/setup` - One-time admin creation
-- `/api/admin/stats` - Dashboard statistics
-- `/api/admin/bookings` - All bookings with filters
-- `/api/admin/booking/{id}` - Booking detail with intake
-- `/api/admin/booking/{id}/status` - Update booking status
-- `/api/admin/clients` - All clients list
-- `/api/admin/client/{id}` - Client profile with history
-- `/api/admin/availability` - Get/update availability
-- `/api/admin/blackout` - Add/remove blackout dates
-- `/api/admin/intake-summary/{id}` - AI session prep summary
-- `/api/admin/reports/revenue` - Revenue reports
+- `/api/admin/notifications` - View all notifications
+- `/api/admin/notification-stats` - Notification statistics
+- `/api/admin/send-reminder/{id}` - Manual reminder trigger
+
+**Ready for Real Integration**
+To enable real notifications, add to backend/.env:
+- EMAIL_PROVIDER=resend (or sendgrid)
+- EMAIL_API_KEY=your_key
+- WHATSAPP_PROVIDER=twilio
+- TWILIO_ACCOUNT_SID=your_sid
+- TWILIO_AUTH_TOKEN=your_token
+- TWILIO_WHATSAPP_NUMBER=your_number
 
 ---
 
-## Next Tasks (Immediate)
-
-1. **Phase 1E**: Real Razorpay integration (replace mock)
-2. **Phase 1E**: Real email sending (Resend/SendGrid)
-3. **Phase 1E**: WhatsApp reminders integration
-4. **Phase 1E**: Automated reminder workflows
+## Phases Complete Summary
+- **Phase 1A**: Public pages, AI chatbot, intake form
+- **Phase 1B**: Booking flow, slot selection, mocked payments
+- **Phase 1C**: Client auth, portal, reschedule/cancel/feedback
+- **Phase 1D**: Admin dashboard, availability, client management
+- **Phase 1E**: Automated notifications, reminder scheduler
 
 ---
 
-## Technical Debt
-- Razorpay integration is MOCKED
-- Email notifications are MOCKED (logged to DB)
+## Technical Notes
+- All integrations use abstraction layers for easy provider switching
+- Scheduler runs in background, checks bookings every 30 minutes
+- Notifications logged to DB regardless of provider (mock or real)
 
 ## Known Limitations
-- No real payment processing (MOCKED)
-- No real email sending (MOCKED)
-- WhatsApp integration pending (Phase 1E)
+- Payments still mocked (Razorpay keys needed)
+- Notifications still mocked (provider keys needed)
+- Video call link generation not implemented
