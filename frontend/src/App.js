@@ -30,6 +30,7 @@ import AdminBookings from "@/pages/admin/AdminBookings";
 import AdminBookingDetail from "@/pages/admin/AdminBookingDetail";
 import AdminClients from "@/pages/admin/AdminClients";
 import AdminAvailability from "@/pages/admin/AdminAvailability";
+import AdminNotifications from "@/pages/admin/AdminNotifications";
 
 function App() {
   return (
@@ -45,6 +46,7 @@ function App() {
             <Route path="/admin/clients" element={<AdminClients />} />
             <Route path="/admin/client/:clientId" element={<AdminClients />} />
             <Route path="/admin/availability" element={<AdminAvailability />} />
+            <Route path="/admin/notifications" element={<AdminNotifications />} />
             
             {/* Public Routes with Navbar/Footer */}
             <Route path="/*" element={
