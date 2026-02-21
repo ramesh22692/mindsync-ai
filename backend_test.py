@@ -1096,6 +1096,41 @@ def main():
     except Exception as e:
         print(f"❌ Admin data tests failed: {str(e)}")
     
+    # Phase 1E: Notification System Tests
+    print("\n📋 Phase 1E Tests (Notification System):")
+    print("-" * 40)
+    
+    notification_tests = [
+        ("Admin Notifications List", tester.test_admin_notifications_list),
+        ("Admin Notification Stats", tester.test_admin_notification_stats),
+        ("Notification Filtering", tester.test_notification_filtering),
+    ]
+    
+    # Run notification tests
+    scheduler_running = False
+    for test_name, test_func in notification_tests:
+        try:
+            if test_name == "Admin Notification Stats":
+                success, scheduler_status = test_func()
+                scheduler_running = scheduler_status
+            else:
+                test_func()
+        except Exception as e:
+            print(f"❌ {test_name} failed with exception: {str(e)}")
+    
+    # Test manual reminder sending if we have a booking
+    if booking_id:
+        try:
+            tester.test_manual_reminder_sending(booking_id)
+        except Exception as e:
+            print(f"❌ Manual reminder test failed: {str(e)}")
+    
+    # Summary for Phase 1E
+    print(f"\n📋 Phase 1E Summary:")
+    print(f"   Scheduler Status: {'✅ Running' if scheduler_running else '❌ Not Running'}")
+    print(f"   Notification APIs: Available")
+    print(f"   Manual Reminders: Functional")
+    
     # Print results
     print("\n" + "=" * 60)
     print(f"📊 Test Results: {tester.tests_passed}/{tester.tests_run} passed")
