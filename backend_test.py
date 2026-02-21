@@ -741,6 +741,26 @@ class PsychologyAPITester:
             return True, clients
         return False, []
 
+    def test_admin_client_detail(self, client_id):
+        """Test admin client detail"""
+        if not hasattr(self, 'admin_token') or not self.admin_token or not client_id:
+            print("   ⚠️  Skipping admin client detail - no admin token or client ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.admin_token}'
+        }
+        
+        success, data = self.run_test("Admin Client Detail", "GET", f"api/admin/client/{client_id}", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and 'client' in data:
+            client = data['client']
+            bookings = data.get('bookings', [])
+            print(f"   ✅ Client detail retrieved - {client.get('full_name')} with {len(bookings)} bookings")
+            return True
+        return False
+
     def test_admin_availability_settings(self):
         """Test admin availability settings"""
         if not hasattr(self, 'admin_token') or not self.admin_token:
