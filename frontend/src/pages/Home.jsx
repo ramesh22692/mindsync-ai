@@ -344,28 +344,38 @@ export const Home = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="relative">
               <img
-                src="https://images.pexels.com/photos/7579315/pexels-photo-7579315.jpeg"
-                alt="Saloni - Professional Psychologist"
+                src="https://images.unsplash.com/photo-1622460241924-a114e6abe1ff?w=800"
+                alt="Saloni Mutha - Psychology Educator"
                 className="rounded-2xl shadow-xl w-full max-w-md mx-auto"
               />
+              <div className="absolute -bottom-4 -right-4 bg-primary text-white p-4 rounded-xl shadow-lg hidden md:block">
+                <p className="font-semibold">MA Psychology</p>
+                <p className="text-sm opacity-80">BFA | B.Ed</p>
+              </div>
             </div>
             <div className="space-y-6">
               <h2 className="text-3xl md:text-4xl font-semibold text-foreground">
-                Meet Saloni
+                Meet Saloni Mutha
               </h2>
               <p className="font-accent text-xl text-primary italic">
-                "Creating a safe space for your growth journey"
+                "Where psychology meets creativity and education"
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                With a background in clinical psychology and years of experience in 
-                online counselling, I've developed a structured approach that combines 
-                evidence-based techniques with genuine human connection.
+                With an MA in Psychology, BFA in Arts, and B.Ed in Education, I bring a unique 
+                multidisciplinary approach to counselling. My 9 years of teaching experience 
+                have taught me the art of understanding diverse minds and communicating effectively.
               </p>
               <p className="text-muted-foreground leading-relaxed">
-                My practice focuses on helping you develop practical tools and insights 
-                that you can apply in your daily life, rather than creating dependency 
-                on therapy.
+                My practice blends psychological insights with creative expression and 
+                educational methodology—helping you discover practical tools for growth 
+                through a holistic lens.
               </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-3 py-1 bg-secondary rounded-full text-sm text-primary">MA Psychology</span>
+                <span className="px-3 py-1 bg-secondary rounded-full text-sm text-primary">BFA Arts</span>
+                <span className="px-3 py-1 bg-secondary rounded-full text-sm text-primary">B.Ed Education</span>
+                <span className="px-3 py-1 bg-secondary rounded-full text-sm text-primary">9 Years Experience</span>
+              </div>
               <Link to="/about">
                 <Button variant="outline" className="gap-2">
                   Learn More About My Approach
