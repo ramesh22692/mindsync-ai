@@ -1,0 +1,158 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Mutha's Psychology Intelligence",
+      "tone": "Calm, Professional, Empathetic, Transparent, Safe",
+      "archetype": "The Wise Guide (Sage) + The Caregiver",
+      "visual_mood": "Premium Institutional + Subtle AI-Tech"
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Manrope, sans-serif",
+        "body": "Inter, sans-serif",
+        "accent": "Playfair Display, serif"
+      },
+      "scale": {
+        "h1": "text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight",
+        "h2": "text-3xl md:text-4xl font-semibold tracking-tight",
+        "h3": "text-2xl md:text-3xl font-medium",
+        "body_large": "text-lg md:text-xl leading-relaxed",
+        "body_base": "text-base leading-relaxed text-slate-600",
+        "caption": "text-sm text-slate-500 uppercase tracking-widest"
+      }
+    },
+    "colors": {
+      "palette": {
+        "background": "#FDFCF8",
+        "foreground": "#1E293B",
+        "primary": "#0F766E",
+        "primary_foreground": "#FFFFFF",
+        "secondary": "#F0FDFA",
+        "secondary_foreground": "#0F766E",
+        "accent": "#F59E0B",
+        "accent_foreground": "#FFFFFF",
+        "muted": "#F1F5F9",
+        "muted_foreground": "#64748B",
+        "border": "#E2E8F0",
+        "input": "#E2E8F0",
+        "ring": "#0F766E",
+        "crisis": "#BE123C",
+        "success": "#059669"
+      },
+      "gradients": {
+        "subtle_mesh": "radial-gradient(circle at 50% 50%, rgba(15, 118, 110, 0.05) 0%, transparent 50%)",
+        "hero_glow": "linear-gradient(180deg, rgba(253, 252, 248, 0) 0%, #FDFCF8 100%)"
+      }
+    },
+    "layout": {
+      "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8",
+      "spacing": {
+        "section_padding": "py-16 md:py-24",
+        "element_gap": "gap-6 md:gap-8"
+      },
+      "radius": {
+        "default": "rounded-xl",
+        "button": "rounded-full",
+        "card": "rounded-2xl"
+      }
+    },
+    "components": {
+      "buttons": {
+        "primary": "bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8 rounded-full font-medium transition-all shadow-sm hover:shadow-md",
+        "secondary": "bg-white text-primary border border-primary/20 hover:bg-secondary h-11 px-8 rounded-full font-medium transition-all",
+        "ghost": "hover:bg-slate-100 text-slate-700 hover:text-slate-900 h-10 px-4 rounded-full",
+        "crisis": "bg-crisis text-white hover:bg-crisis/90 h-10 px-6 rounded-full font-bold shadow-sm animate-pulse-slow"
+      },
+      "cards": {
+        "base": "bg-white border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl p-6",
+        "feature": "bg-secondary/30 border border-primary/5 hover:border-primary/20 transition-all duration-300 rounded-2xl p-8"
+      },
+      "inputs": {
+        "base": "h-12 rounded-lg border-slate-200 focus:border-primary focus:ring-primary/20 bg-white/50 backdrop-blur-sm"
+      }
+    },
+    "visual_enhancers": {
+      "shadows": {
+        "soft": "0 4px 20px -2px rgba(15, 118, 110, 0.05)",
+        "float": "0 10px 40px -10px rgba(0, 0, 0, 0.05)"
+      },
+      "textures": {
+        "noise": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E\")"
+      }
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_bg": {
+        "url": "https://images.pexels.com/photos/5619496/pexels-photo-5619496.jpeg",
+        "alt": "Calm, warm therapy clinic interior with comfortable seating",
+        "usage": "Hero section background or side image"
+      },
+      "psychologist_portrait": {
+        "url": "https://images.pexels.com/photos/7579315/pexels-photo-7579315.jpeg",
+        "alt": "Professional Indian female psychologist (Saloni)",
+        "usage": "About Saloni section, Trust strip"
+      },
+      "group_therapy": {
+        "url": "https://images.pexels.com/photos/5711167/pexels-photo-5711167.jpeg",
+        "alt": "Diverse group therapy session in a safe environment",
+        "usage": "Services page - Group Therapy card"
+      },
+      "online_therapy": {
+        "url": "https://images.pexels.com/photos/7606078/pexels-photo-7606078.jpeg",
+        "alt": "Person having a positive video consultation on laptop",
+        "usage": "Services page - Online Therapy card, Home page 'How it works'"
+      },
+      "mindfulness_abstract": {
+        "url": "https://images.unsplash.com/photo-1745100552003-c3c98c4a64b3",
+        "alt": "Balanced stones representing mental equilibrium",
+        "usage": "AI & Safety page background, Footer background"
+      },
+      "calm_interior_detail": {
+        "url": "https://images.unsplash.com/photo-1735013531564-a419dc5f31ea",
+        "alt": "Minimalist therapy room detail",
+        "usage": "Contact page, Fees page"
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "preferred_set": ["Brain", "HeartHandshake", "ShieldCheck", "Sparkles", "Clock", "Users", "Video", "MessageCircle"]
+    }
+  },
+  "page_guidelines": {
+    "home": {
+      "structure": ["Hero (Trust + Calm)", "Trust Strip (Credentials)", "How It Works (3 Steps)", "Services Overview (Cards)", "About Saloni (Snippet)", "Fees Snapshot", "FAQ (Accordion)", "CTA (Booking)"],
+      "key_elements": "Use 'Manrope' for headings. Hero should feel like a sanctuary. Trust strip must be prominent."
+    },
+    "services": {
+      "layout": "Grid of cards (Bento-lite). Each service card needs an icon and a 'Learn More' link.",
+      "style": "Clean, descriptive, non-overwhelming."
+    },
+    "about_saloni": {
+      "layout": "Split layout: Image on left, Bio on right. Use 'Playfair Display' for quotes.",
+      "tone": "Warm, authoritative, human."
+    },
+    "ai_safety": {
+      "layout": "Single column text with 'Shield' iconography. Transparent background with subtle mesh gradient.",
+      "tone": "Reassuring, technical but accessible."
+    },
+    "crisis": {
+      "layout": "Red/Rose accented border. Clear, large text. Direct phone numbers.",
+      "style": "High contrast, no distractions."
+    }
+  },
+  "universal_guidelines": [
+    "Use 'Manrope' for Headings and 'Inter' for Body text.",
+    "Primary Color is Deep Teal (#0F766E). Use it for primary actions.",
+    "Background is Warm Off-White (#FDFCF8). Avoid pure white for large backgrounds.",
+    "Use 2x-3x padding for a premium feel.",
+    "All interactive elements must have a hover state (opacity change or slight lift).",
+    "Crisis information must be distinct but not panic-inducing.",
+    "AI transparency is mandatory - clearly label AI features.",
+    "Mobile-first responsive design is critical for the India market.",
+    "Use 'lucide-react' for icons.",
+    "Use 'sonner' for toast notifications.",
+    "Do not use 'transition: all'. Animate specific properties.",
+    "Ensure all interactive elements have 'data-testid' attributes."
+  ]
+}
