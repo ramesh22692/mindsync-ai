@@ -151,14 +151,37 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 - [ ] Blog/articles section
 - [ ] Testimonials management
 
+### Phase 1D - January 2026
+**Admin Dashboard**
+- Admin authentication (separate role)
+- Dashboard with stats: Total Clients, Bookings, Revenue, Avg Rating
+- All bookings list with status filters
+- Booking detail with client info and AI intake summary
+- Client profiles with booking history
+- Availability settings: Weekly schedule, Blackout dates, Buffer times
+- Revenue reports by period
+
+**Backend APIs Added**
+- `/api/admin/setup` - One-time admin creation
+- `/api/admin/stats` - Dashboard statistics
+- `/api/admin/bookings` - All bookings with filters
+- `/api/admin/booking/{id}` - Booking detail with intake
+- `/api/admin/booking/{id}/status` - Update booking status
+- `/api/admin/clients` - All clients list
+- `/api/admin/client/{id}` - Client profile with history
+- `/api/admin/availability` - Get/update availability
+- `/api/admin/blackout` - Add/remove blackout dates
+- `/api/admin/intake-summary/{id}` - AI session prep summary
+- `/api/admin/reports/revenue` - Revenue reports
+
 ---
 
 ## Next Tasks (Immediate)
 
-1. **Phase 1D**: Admin authentication (separate admin role)
-2. **Phase 1D**: Admin dashboard with appointments overview
-3. **Phase 1D**: Availability manager (working hours, blackouts)
-4. **Phase 1D**: Client profiles with intake summaries
+1. **Phase 1E**: Real Razorpay integration (replace mock)
+2. **Phase 1E**: Real email sending (Resend/SendGrid)
+3. **Phase 1E**: WhatsApp reminders integration
+4. **Phase 1E**: Automated reminder workflows
 
 ---
 
@@ -167,7 +190,6 @@ Build a premium, production-ready website + web app for Mutha's Psychology Intel
 - Email notifications are MOCKED (logged to DB)
 
 ## Known Limitations
-- No admin dashboard yet (Phase 1D)
 - No real payment processing (MOCKED)
 - No real email sending (MOCKED)
 - WhatsApp integration pending (Phase 1E)
