@@ -344,9 +344,9 @@ export const Home = () => {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="relative">
               <img
-                src="https://images.unsplash.com/photo-1622460241924-a114e6abe1ff?w=800"
+                src="https://images.pexels.com/photos/734168/pexels-photo-734168.jpeg"
                 alt="Saloni Mutha - Psychology Educator"
-                className="rounded-2xl shadow-xl w-full max-w-md mx-auto"
+                className="rounded-2xl shadow-xl w-full max-w-md mx-auto object-cover h-[450px]"
               />
               <div className="absolute -bottom-4 -right-4 bg-primary text-white p-4 rounded-xl shadow-lg hidden md:block">
                 <p className="font-semibold">MA Psychology</p>
