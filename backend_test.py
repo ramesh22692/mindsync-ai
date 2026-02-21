@@ -194,7 +194,183 @@ class PsychologyAPITester:
             return True
         return False
 
-    # ==================== PHASE 1B: BOOKING & PAYMENT TESTS ====================
+    # ==================== PHASE 1C: AUTHENTICATION TESTS ====================
+
+    def test_user_registration(self):
+        """Test user registration"""
+        register_data = {
+            "email": self.test_user_email,
+            "password": "testpass123",
+            "full_name": "Test User",
+            "phone": "+91 9876543210"
+        }
+        
+        success, data = self.run_test("User Registration", "POST", "api/auth/register", 200, register_data)
+        
+        if success and isinstance(data, dict) and data.get('access_token'):
+            self.auth_token = data['access_token']
+            print(f"   ✅ User registered: {data['user']['full_name']} ({data['user']['email']})")
+            return True
+        return False
+
+    def test_user_login(self):
+        """Test user login"""
+        login_data = {
+            "email": self.test_user_email,
+            "password": "testpass123"
+        }
+        
+        success, data = self.run_test("User Login", "POST", "api/auth/login", 200, login_data)
+        
+        if success and isinstance(data, dict) and data.get('access_token'):
+            self.auth_token = data['access_token']
+            print(f"   ✅ User logged in: {data['user']['full_name']}")
+            return True
+        return False
+
+    def test_get_user_profile(self):
+        """Test get current user profile"""
+        if not self.auth_token:
+            print("   ⚠️  Skipping profile test - no auth token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        success, data = self.run_test("Get User Profile", "GET", "api/auth/me", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('email') == self.test_user_email:
+            print(f"   ✅ Profile retrieved: {data['full_name']} - {data['role']}")
+            return True
+        return False
+
+    def test_update_profile(self):
+        """Test profile update"""
+        if not self.auth_token:
+            print("   ⚠️  Skipping profile update - no auth token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        # Update profile using query parameters
+        success, data = self.run_test("Update Profile", "PUT", "api/auth/profile?full_name=Updated Test User&phone=+91 9876543211", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'updated':
+            print(f"   ✅ Profile updated successfully")
+            return True
+        return False
+
+    # ==================== PHASE 1C: CLIENT PORTAL TESTS ====================
+
+    def test_get_my_bookings(self):
+        """Test get user's bookings"""
+        if not self.auth_token:
+            print("   ⚠️  Skipping bookings test - no auth token")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        success, data = self.run_test("Get My Bookings", "GET", "api/portal/bookings", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and 'bookings' in data:
+            bookings = data['bookings']
+            print(f"   ✅ Found {len(bookings)} bookings for user")
+            return True, bookings
+        return False, []
+
+    def test_cancel_booking(self, booking_id):
+        """Test booking cancellation"""
+        if not self.auth_token or not booking_id:
+            print("   ⚠️  Skipping cancel test - no auth token or booking ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        success, data = self.run_test("Cancel Booking", "POST", f"api/portal/booking/{booking_id}/cancel", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'cancelled':
+            print(f"   ✅ Booking cancelled: {data.get('message')}")
+            return True
+        return False
+
+    def test_reschedule_booking(self, booking_id):
+        """Test booking rescheduling"""
+        if not self.auth_token or not booking_id:
+            print("   ⚠️  Skipping reschedule test - no auth token or booking ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        # Try to reschedule to a future date
+        from datetime import datetime, timedelta
+        future_date = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+        
+        success, data = self.run_test("Reschedule Booking", "POST", f"api/portal/booking/{booking_id}/reschedule?new_date={future_date}&new_time=14:00", 200, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'rescheduled':
+            print(f"   ✅ Booking rescheduled: {data.get('message')}")
+            return True
+        return False
+
+    def test_submit_feedback(self, booking_id):
+        """Test feedback submission"""
+        if not self.auth_token or not booking_id:
+            print("   ⚠️  Skipping feedback test - no auth token or booking ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        feedback_data = {
+            "booking_id": booking_id,
+            "rating": 5,
+            "feedback_text": "Excellent session, very helpful!",
+            "would_recommend": True
+        }
+        
+        success, data = self.run_test("Submit Feedback", "POST", "api/portal/feedback", 200, feedback_data, headers=headers)
+        
+        if success and isinstance(data, dict) and data.get('status') == 'submitted':
+            print(f"   ✅ Feedback submitted: {data.get('message')}")
+            return True
+        return False
+
+    def test_get_feedback(self, booking_id):
+        """Test feedback retrieval"""
+        if not self.auth_token or not booking_id:
+            print("   ⚠️  Skipping feedback retrieval - no auth token or booking ID")
+            return False
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {self.auth_token}'
+        }
+        
+        success, data = self.run_test("Get Feedback", "GET", f"api/portal/feedback/{booking_id}", 200, headers=headers)
+        
+        if success and isinstance(data, dict):
+            if data.get('exists'):
+                print(f"   ✅ Feedback found for booking")
+            else:
+                print(f"   ✅ No feedback exists (expected for new booking)")
+            return True
+        return False
 
     def test_slots_endpoint(self):
         """Test available slots endpoint"""
